@@ -1,0 +1,40 @@
+import pandas as pd
+import mysql.connector
+from google.cloud import bigquery
+
+def cargar_datos_mysql_a_bq(host, user, passwd, database, sql_query, tabla_bq, tabla_id):
+    # Conexión a la base de datos MySQL
+    mydb = mysql.connector.connect(
+        host=host,
+        user=user,
+        passwd=passwd,
+        database=database
+    )
+
+    # Ejecutar consulta SQL y guardar resultados en un DataFrame de pandas
+    df = pd.read_sql(sql_query, mydb)
+
+    # Cerrar la conexión a la base de datos MySQL
+    mydb.close()
+
+    # Conexión al proyecto y dataset de BigQuery
+    client = bigquery.Client()
+
+    # Obtener información sobre la tabla en BigQuery
+    tabla_property = client.get_table(tabla_id)
+
+    # Configurar la carga de datos a BigQuery
+    job_configuration = bigquery.LoadJobConfig(
+        schema=tabla_property.schema,
+        write_disposition="WRITE_TRUNCATE"
+    )
+
+    # Cargar datos desde DataFrame de pandas a BigQuery
+    job = client.load_table_from_dataframe(
+        df, tabla_id, job_config=job_configuration
+    )
+
+    # Esperar a que finalice la carga de datos
+    job.result()
+
+    print(f"Datos cargados a la tabla {tabla_bq} en BigQuery.")
